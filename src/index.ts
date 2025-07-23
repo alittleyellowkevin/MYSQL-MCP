@@ -10,50 +10,54 @@ import {
 import { randomUUID } from 'crypto';
 import mysql from 'mysql2/promise';
 
+// MySQL 连接配置
 const MYSQL_HOST = process.env.MYSQL_HOST || 'localhost';
 const MYSQL_PORT = parseInt(process.env.MYSQL_PORT || '3306', 10);
-const MYSQL_USER = process.env.MYSQL_USER || 'mcp101';
-const MYSQL_PASSWORD = process.env.MYSQL_PASSWORD || '123qwe';
-const MYSQL_DATABASE = process.env.MYSQL_DATABASE || 'mcpdb';
+const MYSQL_USER = process.env.MYSQL_USER || 'mcp';
+const MYSQL_PASSWORD = process.env.MYSQL_PASSWORD || 'HKW123456';
+const MYSQL_DATABASE = process.env.MYSQL_DATABASE || 'test';
 
+// SQL 查询参数接口
 interface SqlQueryArgs {
   query: string;
 }
 
-// Validate SQL query arguments
+// 校验 SQL 查询参数是否合法
 const isValidSqlQueryArgs = (args: any): args is SqlQueryArgs =>
   typeof args === 'object' &&
   args !== null &&
   typeof args.query === 'string';
 
-// Check if query is read-only (SELECT)
-const isReadOnlyQuery = (query: string): boolean => 
+// 判断是否为只读查询（SELECT）
+const isReadOnlyQuery = (query: string): boolean =>
   query.trim().toLowerCase().startsWith('select');
 
-// Check if query is for creating a table
-const isCreateTableQuery = (query: string): boolean => 
+// 判断是否为创建表的查询
+const isCreateTableQuery = (query: string): boolean =>
   query.trim().toLowerCase().startsWith('create table');
 
-// Check if query is for inserting data
-const isInsertQuery = (query: string): boolean => 
+// 判断是否为插入数据的查询
+const isInsertQuery = (query: string): boolean =>
   query.trim().toLowerCase().startsWith('insert into');
 
-// Check if query is for updating data
-const isUpdateQuery = (query: string): boolean => 
+// 判断是否为更新数据的查询
+const isUpdateQuery = (query: string): boolean =>
   query.trim().toLowerCase().startsWith('update');
 
-// Check if query is for deleting data
-const isDeleteQuery = (query: string): boolean => 
+// 判断是否为删除数据的查询
+const isDeleteQuery = (query: string): boolean =>
   query.trim().toLowerCase().startsWith('delete from');
 
-// Generate a unique transaction ID for logging
+// 生成唯一事务ID用于日志
 const generateTransactionId = (): string => randomUUID();
 
+// MySQL 服务器主类
 class MySqlServer {
   private server: Server;
   private pool: mysql.Pool;
 
   constructor() {
+    // 初始化 MCP Server
     this.server = new Server(
       {
         name: 'mysql-mcp-server',
@@ -66,6 +70,7 @@ class MySqlServer {
       }
     );
 
+    // 创建 MySQL 连接池
     this.pool = mysql.createPool({
       host: MYSQL_HOST,
       port: MYSQL_PORT,
@@ -77,9 +82,10 @@ class MySqlServer {
       queueLimit: 0,
     });
 
+    // 设置工具处理器
     this.setupToolHandlers();
-    
-    // Error handling
+
+    // 错误处理
     this.server.onerror = (error) => console.error('[MCP Error]', error);
     process.on('SIGINT', async () => {
       await this.pool.end();
@@ -88,18 +94,20 @@ class MySqlServer {
     });
   }
 
+  // 注册工具请求处理器
   private setupToolHandlers() {
+    // 工具列表请求处理
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
       tools: [
         {
           name: 'run_sql_query',
-          description: 'Executes a read-only SQL query (SELECT statements only) against the MySQL database.',
+          description: '执行只读 SQL 查询（仅限 SELECT 语句）',
           inputSchema: {
             type: 'object',
             properties: {
               query: {
                 type: 'string',
-                description: 'The SQL SELECT query to execute.',
+                description: '要执行的 SQL SELECT 查询语句',
               },
             },
             required: ['query'],
@@ -107,13 +115,13 @@ class MySqlServer {
         },
         {
           name: 'create_table',
-          description: 'Creates a new table in the MySQL database.',
+          description: '在 MySQL 数据库中创建新表',
           inputSchema: {
             type: 'object',
             properties: {
               query: {
                 type: 'string',
-                description: 'The SQL CREATE TABLE query to execute.',
+                description: '要执行的 SQL CREATE TABLE 语句',
               },
             },
             required: ['query'],
@@ -121,13 +129,13 @@ class MySqlServer {
         },
         {
           name: 'insert_data',
-          description: 'Inserts data into a table in the MySQL database.',
+          description: '向 MySQL 数据库表插入数据',
           inputSchema: {
             type: 'object',
             properties: {
               query: {
                 type: 'string',
-                description: 'The SQL INSERT INTO query to execute.',
+                description: '要执行的 SQL INSERT INTO 语句',
               },
             },
             required: ['query'],
@@ -135,13 +143,13 @@ class MySqlServer {
         },
         {
           name: 'update_data',
-          description: 'Updates data in a table in the MySQL database.',
+          description: '更新 MySQL 数据库表中的数据',
           inputSchema: {
             type: 'object',
             properties: {
               query: {
                 type: 'string',
-                description: 'The SQL UPDATE query to execute.',
+                description: '要执行的 SQL UPDATE 语句',
               },
             },
             required: ['query'],
@@ -149,13 +157,13 @@ class MySqlServer {
         },
         {
           name: 'delete_data',
-          description: 'Deletes data from a table in the MySQL database.',
+          description: '从 MySQL 数据库表中删除数据',
           inputSchema: {
             type: 'object',
             properties: {
               query: {
                 type: 'string',
-                description: 'The SQL DELETE FROM query to execute.',
+                description: '要执行的 SQL DELETE FROM 语句',
               },
             },
             required: ['query'],
@@ -163,13 +171,13 @@ class MySqlServer {
         },
         {
           name: 'execute_sql',
-          description: 'Executes any non-SELECT SQL statement (e.g., ALTER TABLE, DROP, etc.)',
+          description: '执行任意非 SELECT 的 SQL 语句（如 ALTER TABLE、DROP 等）',
           inputSchema: {
             type: 'object',
             properties: {
               query: {
                 type: 'string',
-                description: 'The SQL statement to execute.',
+                description: '要执行的 SQL 语句',
               },
             },
             required: ['query'],
@@ -178,11 +186,12 @@ class MySqlServer {
       ],
     }));
 
+    // 工具调用请求处理
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const transactionId = generateTransactionId();
-      console.error(`[${transactionId}] Processing request: ${request.params.name}`);
-      
-      // Handle different tool types
+      console.error(`[${transactionId}] 正在处理请求: ${request.params.name}`);
+
+      // 根据工具类型分发处理
       switch (request.params.name) {
         case 'run_sql_query':
           return this.handleReadQuery(request, transactionId);
@@ -199,36 +208,36 @@ class MySqlServer {
         default:
           throw new McpError(
             ErrorCode.MethodNotFound,
-            `Unknown tool: ${request.params.name}`
+            `未知工具: ${request.params.name}`
           );
       }
     });
   }
 
-  // Handle read-only queries (SELECT)
+  // 处理只读查询（SELECT）
   private async handleReadQuery(request: any, transactionId: string) {
     if (!isValidSqlQueryArgs(request.params.arguments)) {
       throw new McpError(
         ErrorCode.InvalidParams,
-        'Invalid SQL query arguments.'
+        'SQL 查询参数无效。'
       );
     }
 
     const query = request.params.arguments.query;
-    
+
     if (!isReadOnlyQuery(query)) {
       throw new McpError(
         ErrorCode.InvalidParams,
-        'Only SELECT queries are allowed with run_sql_query tool.'
+        'run_sql_query 工具仅允许 SELECT 查询。'
       );
     }
 
-    console.error(`[${transactionId}] Executing SELECT query: ${query}`);
-    
+    console.error(`[${transactionId}] 执行 SELECT 查询: ${query}`);
+
     try {
       const [rows] = await this.pool.query(query);
-      console.error(`[${transactionId}] Query executed successfully`);
-      
+      console.error(`[${transactionId}] 查询执行成功`);
+
       return {
         content: [
           {
@@ -238,13 +247,13 @@ class MySqlServer {
         ],
       };
     } catch (error) {
-      console.error(`[${transactionId}] Query error:`, error);
+      console.error(`[${transactionId}] 查询出错:`, error);
       if (error instanceof Error) {
         return {
           content: [
             {
               type: 'text',
-              text: `MySQL error: ${error.message}`,
+              text: `MySQL 错误: ${error.message}`,
             },
           ],
           isError: true,
@@ -254,50 +263,50 @@ class MySqlServer {
     }
   }
 
-  // Handle CREATE TABLE queries
+  // 处理 CREATE TABLE 查询
   private async handleCreateTable(request: any, transactionId: string) {
     if (!isValidSqlQueryArgs(request.params.arguments)) {
       throw new McpError(
         ErrorCode.InvalidParams,
-        'Invalid SQL query arguments.'
+        'SQL 查询参数无效。'
       );
     }
 
     const query = request.params.arguments.query;
-    
+
     if (!isCreateTableQuery(query)) {
       throw new McpError(
         ErrorCode.InvalidParams,
-        'Only CREATE TABLE queries are allowed with create_table tool.'
+        'create_table 工具仅允许 CREATE TABLE 查询。'
       );
     }
 
-    console.error(`[${transactionId}] Executing CREATE TABLE query: ${query}`);
-    
+    console.error(`[${transactionId}] 执行 CREATE TABLE 查询: ${query}`);
+
     try {
       const [result] = await this.pool.query(query);
-      console.error(`[${transactionId}] Table created successfully`);
-      
+      console.error(`[${transactionId}] 表创建成功`);
+
       return {
         content: [
           {
             type: 'text',
             text: JSON.stringify({
               success: true,
-              message: 'Table created successfully',
+              message: '表创建成功',
               result
             }, null, 2),
           },
         ],
       };
     } catch (error) {
-      console.error(`[${transactionId}] Query error:`, error);
+      console.error(`[${transactionId}] 查询出错:`, error);
       if (error instanceof Error) {
         return {
           content: [
             {
               type: 'text',
-              text: `MySQL error: ${error.message}`,
+              text: `MySQL 错误: ${error.message}`,
             },
           ],
           isError: true,
@@ -307,50 +316,50 @@ class MySqlServer {
     }
   }
 
-  // Handle INSERT INTO queries
+  // 处理 INSERT INTO 查询
   private async handleInsertData(request: any, transactionId: string) {
     if (!isValidSqlQueryArgs(request.params.arguments)) {
       throw new McpError(
         ErrorCode.InvalidParams,
-        'Invalid SQL query arguments.'
+        'SQL 查询参数无效。'
       );
     }
 
     const query = request.params.arguments.query;
-    
+
     if (!isInsertQuery(query)) {
       throw new McpError(
         ErrorCode.InvalidParams,
-        'Only INSERT INTO queries are allowed with insert_data tool.'
+        'insert_data 工具仅允许 INSERT INTO 查询。'
       );
     }
 
-    console.error(`[${transactionId}] Executing INSERT query: ${query}`);
-    
+    console.error(`[${transactionId}] 执行 INSERT 查询: ${query}`);
+
     try {
       const [result] = await this.pool.query(query);
-      console.error(`[${transactionId}] Data inserted successfully`);
-      
+      console.error(`[${transactionId}] 数据插入成功`);
+
       return {
         content: [
           {
             type: 'text',
             text: JSON.stringify({
               success: true,
-              message: 'Data inserted successfully',
+              message: '数据插入成功',
               result
             }, null, 2),
           },
         ],
       };
     } catch (error) {
-      console.error(`[${transactionId}] Query error:`, error);
+      console.error(`[${transactionId}] 查询出错:`, error);
       if (error instanceof Error) {
         return {
           content: [
             {
               type: 'text',
-              text: `MySQL error: ${error.message}`,
+              text: `MySQL 错误: ${error.message}`,
             },
           ],
           isError: true,
@@ -360,50 +369,50 @@ class MySqlServer {
     }
   }
 
-  // Handle UPDATE queries
+  // 处理 UPDATE 查询
   private async handleUpdateData(request: any, transactionId: string) {
     if (!isValidSqlQueryArgs(request.params.arguments)) {
       throw new McpError(
         ErrorCode.InvalidParams,
-        'Invalid SQL query arguments.'
+        'SQL 查询参数无效。'
       );
     }
 
     const query = request.params.arguments.query;
-    
+
     if (!isUpdateQuery(query)) {
       throw new McpError(
         ErrorCode.InvalidParams,
-        'Only UPDATE queries are allowed with update_data tool.'
+        'update_data 工具仅允许 UPDATE 查询。'
       );
     }
 
-    console.error(`[${transactionId}] Executing UPDATE query: ${query}`);
-    
+    console.error(`[${transactionId}] 执行 UPDATE 查询: ${query}`);
+
     try {
       const [result] = await this.pool.query(query);
-      console.error(`[${transactionId}] Data updated successfully`);
-      
+      console.error(`[${transactionId}] 数据更新成功`);
+
       return {
         content: [
           {
             type: 'text',
             text: JSON.stringify({
               success: true,
-              message: 'Data updated successfully',
+              message: '数据更新成功',
               result
             }, null, 2),
           },
         ],
       };
     } catch (error) {
-      console.error(`[${transactionId}] Query error:`, error);
+      console.error(`[${transactionId}] 查询出错:`, error);
       if (error instanceof Error) {
         return {
           content: [
             {
               type: 'text',
-              text: `MySQL error: ${error.message}`,
+              text: `MySQL 错误: ${error.message}`,
             },
           ],
           isError: true,
@@ -413,50 +422,50 @@ class MySqlServer {
     }
   }
 
-  // Handle DELETE FROM queries
+  // 处理 DELETE FROM 查询
   private async handleDeleteData(request: any, transactionId: string) {
     if (!isValidSqlQueryArgs(request.params.arguments)) {
       throw new McpError(
         ErrorCode.InvalidParams,
-        'Invalid SQL query arguments.'
+        'SQL 查询参数无效。'
       );
     }
 
     const query = request.params.arguments.query;
-    
+
     if (!isDeleteQuery(query)) {
       throw new McpError(
         ErrorCode.InvalidParams,
-        'Only DELETE FROM queries are allowed with delete_data tool.'
+        'delete_data 工具仅允许 DELETE FROM 查询。'
       );
     }
 
-    console.error(`[${transactionId}] Executing DELETE query: ${query}`);
-    
+    console.error(`[${transactionId}] 执行 DELETE 查询: ${query}`);
+
     try {
       const [result] = await this.pool.query(query);
-      console.error(`[${transactionId}] Data deleted successfully`);
-      
+      console.error(`[${transactionId}] 数据删除成功`);
+
       return {
         content: [
           {
             type: 'text',
             text: JSON.stringify({
               success: true,
-              message: 'Data deleted successfully',
+              message: '数据删除成功',
               result
             }, null, 2),
           },
         ],
       };
     } catch (error) {
-      console.error(`[${transactionId}] Query error:`, error);
+      console.error(`[${transactionId}] 查询出错:`, error);
       if (error instanceof Error) {
         return {
           content: [
             {
               type: 'text',
-              text: `MySQL error: ${error.message}`,
+              text: `MySQL 错误: ${error.message}`,
             },
           ],
           isError: true,
@@ -466,18 +475,19 @@ class MySqlServer {
     }
   }
 
+  // 启动 MCP 服务器
   async run() {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    console.error('MySQL MCP server running on stdio');
+    console.error('MySQL MCP 服务器已通过 stdio 启动');
   }
 
-  // Handle general SQL execution (non-SELECT)
+  // 处理通用 SQL 执行（非 SELECT）
   private async handleExecuteSql(request: any, transactionId: string) {
     if (!isValidSqlQueryArgs(request.params.arguments)) {
       throw new McpError(
         ErrorCode.InvalidParams,
-        'Invalid SQL query arguments.'
+        'SQL 查询参数无效。'
       );
     }
 
@@ -486,15 +496,15 @@ class MySqlServer {
     if (isReadOnlyQuery(query)) {
       throw new McpError(
         ErrorCode.InvalidParams,
-        'SELECT queries are not allowed with execute_sql tool.'
+        'execute_sql 工具不允许 SELECT 查询。'
       );
     }
 
-    console.error(`[${transactionId}] Executing general SQL: ${query}`);
+    console.error(`[${transactionId}] 执行通用 SQL: ${query}`);
 
     try {
       const [result] = await this.pool.query(query);
-      console.error(`[${transactionId}] SQL executed successfully`);
+      console.error(`[${transactionId}] SQL 执行成功`);
 
       return {
         content: [
@@ -502,20 +512,20 @@ class MySqlServer {
             type: 'text',
             text: JSON.stringify({
               success: true,
-              message: 'SQL executed successfully',
+              message: 'SQL 执行成功',
               result
             }, null, 2),
           },
         ],
       };
     } catch (error) {
-      console.error(`[${transactionId}] SQL error:`, error);
+      console.error(`[${transactionId}] SQL 执行出错:`, error);
       if (error instanceof Error) {
         return {
           content: [
             {
               type: 'text',
-              text: `MySQL error: ${error.message}`,
+              text: `MySQL 错误: ${error.message}`,
             },
           ],
           isError: true,
@@ -526,5 +536,6 @@ class MySqlServer {
   }
 }
 
+// 实例化并运行服务器
 const server = new MySqlServer();
 server.run().catch(console.error);
